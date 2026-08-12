@@ -1,0 +1,28 @@
+BrandRelay OAuth callbacks using your Render base URL
+
+Facebook:
+https://YOUR-RENDER-SERVICE.onrender.com/callback/facebook
+
+Instagram:
+https://YOUR-RENDER-SERVICE.onrender.com/callback/instagram
+
+Threads:
+https://YOUR-RENDER-SERVICE.onrender.com/callback/threads
+
+TikTok:
+https://YOUR-RENDER-SERVICE.onrender.com/callback/tiktok
+
+X:
+https://YOUR-RENDER-SERVICE.onrender.com/callback/x
+
+LinkedIn:
+https://YOUR-RENDER-SERVICE.onrender.com/callback/linkedin
+
+Google / YouTube:
+https://YOUR-RENDER-SERVICE.onrender.com/callback/google
+
+Pinterest:
+https://YOUR-RENDER-SERVICE.onrender.com/callback/pinterest
+
+Reddit:
+https://YOUR-RENDER-SERVICE.onrender.com/callback/reddit
