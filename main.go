@@ -70,7 +70,7 @@ func main() {
 func loadProviders() map[string]Provider {
 	metaID, metaSecret := env("META_APP_ID"), env("META_APP_SECRET")
 	return map[string]Provider{
-		"facebook":  {Slug: "facebook", Name: "Facebook", ClientID: metaID, ClientSecret: metaSecret, AuthURL: "https://www.facebook.com/dialog/oauth", TokenURL: "https://graph.facebook.com/v26.0/oauth/access_token", Scope: "public_profile,uspublic_profile,pages_show_list,pages_read_engagementer_posts,pages_show_list,pages_read_engagement,pages_read_user_content,pages_manage_posts"},
+		"facebook":  {Slug: "facebook", Name: "Facebook", ClientID: metaID, ClientSecret: metaSecret, AuthURL: "https://www.facebook.com/dialog/oauth", TokenURL: "https://graph.facebook.com/v26.0/oauth/access_token", Scope: envDefault("FACEBOOK_SCOPES", "public_profile,pages_show_list,pages_read_engagement")},
 		"instagram": {Slug: "instagram", Name: "Instagram", ClientID: envDefault("INSTAGRAM_CLIENT_ID", metaID), ClientSecret: envDefault("INSTAGRAM_CLIENT_SECRET", metaSecret), AuthURL: "https://www.instagram.com/oauth/authorize", TokenURL: "https://api.instagram.com/oauth/access_token", Scope: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments,instagram_business_manage_messages"},
 		"threads":   {Slug: "threads", Name: "Threads", ClientID: envDefault("THREADS_CLIENT_ID", metaID), ClientSecret: envDefault("THREADS_CLIENT_SECRET", metaSecret), AuthURL: "https://threads.net/oauth/authorize", TokenURL: "https://graph.threads.net/oauth/access_token", Scope: "threads_basic,threads_content_publish"},
 		"tiktok":    {Slug: "tiktok", Name: "TikTok", ClientID: env("TIKTOK_CLIENT_KEY"), ClientSecret: env("TIKTOK_CLIENT_SECRET"), AuthURL: "https://www.tiktok.com/v2/auth/authorize/", TokenURL: "https://open.tiktokapis.com/v2/oauth/token/", Scope: "user.info.basic,video.list", PKCE: true},
@@ -106,7 +106,7 @@ func health(w http.ResponseWriter, r *http.Request) {
 			configured = append(configured, slug)
 		}
 	}
-	writeJSON(w, 200, map[string]any{"ok": true, "public_url": publicBase, "configured": configured})
+	writeJSON(w, 200, map[string]any{"ok": true, "version": "1.1.0-fixed-scopes", "public_url": publicBase, "configured": configured, "facebook_scopes": providers["facebook"].Scope})
 }
 
 func start(w http.ResponseWriter, r *http.Request) {
@@ -410,7 +410,7 @@ func cleanupLoop() {
 	t := time.NewTicker(5 * time.Minute)
 	defer t.Stop()
 	for range t.C {
-		cut := time.Now().Add(-15 * time.Minute)
+		cut := time.Now().Add(-30 * time.Minute)
 		sessionsMu.Lock()
 		for id, s := range sessions {
 			if s.Created.Before(cut) {

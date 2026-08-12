@@ -14,6 +14,8 @@ services:
         sync: false
       - key: META_APP_SECRET
         sync: false
+      - key: FACEBOOK_SCOPES
+        value: public_profile,pages_show_list,pages_read_engagement
       - key: INSTAGRAM_CLIENT_ID
         sync: false
       - key: INSTAGRAM_CLIENT_SECRET
