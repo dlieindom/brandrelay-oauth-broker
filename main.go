@@ -56,6 +56,8 @@ func main() {
 	mux.HandleFunc("/healthz", health)
 	mux.HandleFunc("/v1/connect/start", start)
 	mux.HandleFunc("/v1/connect/status", status)
+	mux.HandleFunc("/v1/token/refresh", refreshToken)
+	mux.HandleFunc("/v1/providers", providerInfo)
 	mux.HandleFunc("/callback/", callback)
 	port := env("PORT")
 	if port == "" {
@@ -71,14 +73,14 @@ func loadProviders() map[string]Provider {
 	metaID, metaSecret := env("META_APP_ID"), env("META_APP_SECRET")
 	return map[string]Provider{
 		"facebook":  {Slug: "facebook", Name: "Facebook", ClientID: metaID, ClientSecret: metaSecret, AuthURL: "https://www.facebook.com/dialog/oauth", TokenURL: "https://graph.facebook.com/v26.0/oauth/access_token", Scope: envDefault("FACEBOOK_SCOPES", "public_profile,pages_show_list,pages_read_engagement")},
-		"instagram": {Slug: "instagram", Name: "Instagram", ClientID: envDefault("INSTAGRAM_CLIENT_ID", metaID), ClientSecret: envDefault("INSTAGRAM_CLIENT_SECRET", metaSecret), AuthURL: "https://www.instagram.com/oauth/authorize", TokenURL: "https://api.instagram.com/oauth/access_token", Scope: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments,instagram_business_manage_messages"},
-		"threads":   {Slug: "threads", Name: "Threads", ClientID: envDefault("THREADS_CLIENT_ID", metaID), ClientSecret: envDefault("THREADS_CLIENT_SECRET", metaSecret), AuthURL: "https://threads.net/oauth/authorize", TokenURL: "https://graph.threads.net/oauth/access_token", Scope: "threads_basic,threads_content_publish"},
-		"tiktok":    {Slug: "tiktok", Name: "TikTok", ClientID: env("TIKTOK_CLIENT_KEY"), ClientSecret: env("TIKTOK_CLIENT_SECRET"), AuthURL: "https://www.tiktok.com/v2/auth/authorize/", TokenURL: "https://open.tiktokapis.com/v2/oauth/token/", Scope: "user.info.basic,video.list", PKCE: true},
-		"x":         {Slug: "x", Name: "X", ClientID: env("X_CLIENT_ID"), ClientSecret: env("X_CLIENT_SECRET"), AuthURL: "https://x.com/i/oauth2/authorize", TokenURL: "https://api.x.com/2/oauth2/token", Scope: "tweet.read users.read offline.access", PKCE: true},
-		"linkedin":  {Slug: "linkedin", Name: "LinkedIn", ClientID: env("LINKEDIN_CLIENT_ID"), ClientSecret: env("LINKEDIN_CLIENT_SECRET"), AuthURL: "https://www.linkedin.com/oauth/v2/authorization", TokenURL: "https://www.linkedin.com/oauth/v2/accessToken", Scope: "openid profile w_member_social", PKCE: false},
-		"google":    {Slug: "google", Name: "Google / YouTube", ClientID: env("GOOGLE_CLIENT_ID"), ClientSecret: env("GOOGLE_CLIENT_SECRET"), AuthURL: "https://accounts.google.com/o/oauth2/v2/auth", TokenURL: "https://oauth2.googleapis.com/token", Scope: "https://www.googleapis.com/auth/youtube", PKCE: true},
-		"pinterest": {Slug: "pinterest", Name: "Pinterest", ClientID: env("PINTEREST_CLIENT_ID"), ClientSecret: env("PINTEREST_CLIENT_SECRET"), AuthURL: "https://www.pinterest.com/oauth/", TokenURL: "https://api.pinterest.com/v5/oauth/token", Scope: "user_accounts:read,boards:read,pins:read,pins:write"},
-		"reddit":    {Slug: "reddit", Name: "Reddit", ClientID: env("REDDIT_CLIENT_ID"), ClientSecret: env("REDDIT_CLIENT_SECRET"), AuthURL: "https://www.reddit.com/api/v1/authorize", TokenURL: "https://www.reddit.com/api/v1/access_token", Scope: "identity read submit"},
+		"instagram": {Slug: "instagram", Name: "Instagram", ClientID: env("INSTAGRAM_CLIENT_ID"), ClientSecret: env("INSTAGRAM_CLIENT_SECRET"), AuthURL: "https://www.instagram.com/oauth/authorize", TokenURL: "https://api.instagram.com/oauth/access_token", Scope: envDefault("INSTAGRAM_SCOPES", "instagram_business_basic")},
+		"threads":   {Slug: "threads", Name: "Threads", ClientID: env("THREADS_CLIENT_ID"), ClientSecret: env("THREADS_CLIENT_SECRET"), AuthURL: "https://threads.net/oauth/authorize", TokenURL: "https://graph.threads.net/oauth/access_token", Scope: envDefault("THREADS_SCOPES", "threads_basic")},
+		"tiktok":    {Slug: "tiktok", Name: "TikTok", ClientID: env("TIKTOK_CLIENT_KEY"), ClientSecret: env("TIKTOK_CLIENT_SECRET"), AuthURL: "https://www.tiktok.com/v2/auth/authorize/", TokenURL: "https://open.tiktokapis.com/v2/oauth/token/", Scope: envDefault("TIKTOK_SCOPES", "user.info.basic,video.list")},
+		"x":         {Slug: "x", Name: "X", ClientID: env("X_CLIENT_ID"), ClientSecret: env("X_CLIENT_SECRET"), AuthURL: "https://x.com/i/oauth2/authorize", TokenURL: "https://api.x.com/2/oauth2/token", Scope: envDefault("X_SCOPES", "tweet.read users.read offline.access"), PKCE: true},
+		"linkedin":  {Slug: "linkedin", Name: "LinkedIn", ClientID: env("LINKEDIN_CLIENT_ID"), ClientSecret: env("LINKEDIN_CLIENT_SECRET"), AuthURL: "https://www.linkedin.com/oauth/v2/authorization", TokenURL: "https://www.linkedin.com/oauth/v2/accessToken", Scope: envDefault("LINKEDIN_SCOPES", "openid profile")},
+		"google":    {Slug: "google", Name: "Google / YouTube", ClientID: env("GOOGLE_CLIENT_ID"), ClientSecret: env("GOOGLE_CLIENT_SECRET"), AuthURL: "https://accounts.google.com/o/oauth2/v2/auth", TokenURL: "https://oauth2.googleapis.com/token", Scope: envDefault("GOOGLE_SCOPES", "openid profile https://www.googleapis.com/auth/youtube.readonly")},
+		"pinterest": {Slug: "pinterest", Name: "Pinterest", ClientID: env("PINTEREST_CLIENT_ID"), ClientSecret: env("PINTEREST_CLIENT_SECRET"), AuthURL: "https://www.pinterest.com/oauth/", TokenURL: "https://api.pinterest.com/v5/oauth/token", Scope: envDefault("PINTEREST_SCOPES", "user_accounts:read,boards:read,pins:read")},
+		"reddit":    {Slug: "reddit", Name: "Reddit", ClientID: env("REDDIT_CLIENT_ID"), ClientSecret: env("REDDIT_CLIENT_SECRET"), AuthURL: "https://www.reddit.com/api/v1/authorize", TokenURL: "https://www.reddit.com/api/v1/access_token", Scope: envDefault("REDDIT_SCOPES", "identity read")},
 	}
 }
 func envDefault(k, d string) string {
@@ -100,13 +102,36 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 func health(w http.ResponseWriter, r *http.Request) {
-	configured := []string{}
+	configured, missing := []string{}, []string{}
+	scopes := map[string]string{}
+	callbacks := map[string]string{}
 	for slug, p := range providers {
-		if p.ClientID != "" {
+		scopes[slug] = p.Scope
+		callbacks[slug] = publicBase + "/callback/" + slug
+		if p.ClientID != "" && (p.ClientSecret != "" || slug == "x") {
 			configured = append(configured, slug)
+		} else {
+			missing = append(missing, slug)
 		}
 	}
-	writeJSON(w, 200, map[string]any{"ok": true, "version": "1.1.0-fixed-scopes", "public_url": publicBase, "configured": configured, "facebook_scopes": providers["facebook"].Scope})
+	writeJSON(w, 200, map[string]any{"ok": true, "version": "1.2.0-all-socials", "public_url": publicBase, "configured": configured, "missing": missing, "scopes": scopes, "callbacks": callbacks})
+}
+
+func providerInfo(w http.ResponseWriter, r *http.Request) {
+	type item struct {
+		Provider   string `json:"provider"`
+		Name       string `json:"name"`
+		Configured bool   `json:"configured"`
+		Scope      string `json:"scope"`
+		Callback   string `json:"callback"`
+	}
+	out := []item{}
+	order := []string{"facebook", "instagram", "threads", "tiktok", "x", "linkedin", "google", "pinterest", "reddit"}
+	for _, slug := range order {
+		p := providers[slug]
+		out = append(out, item{slug, p.Name, p.ClientID != "" && (p.ClientSecret != "" || slug == "x"), p.Scope, publicBase + "/callback/" + slug})
+	}
+	writeJSON(w, 200, map[string]any{"version": "1.2.0-all-socials", "providers": out})
 }
 
 func start(w http.ResponseWriter, r *http.Request) {
@@ -215,6 +240,9 @@ func callback(w http.ResponseWriter, r *http.Request) {
 		writeHTML(w, false, p.Name, s.Error)
 		return
 	}
+	if upgraded, upErr := upgradeMetaToken(p, tok); upErr == nil && upgraded.AccessToken != "" {
+		tok = upgraded
+	}
 	s.AccessToken = tok.AccessToken
 	s.RefreshToken = tok.RefreshToken
 	s.ExpiresIn = tok.ExpiresIn
@@ -238,7 +266,6 @@ func exchange(p Provider, s *Session, code string) (TokenResult, error) {
 	case "tiktok":
 		vals.Set("client_key", p.ClientID)
 		vals.Set("client_secret", p.ClientSecret)
-		vals.Set("code_verifier", s.Verifier)
 	case "x":
 		vals.Set("client_id", p.ClientID)
 		if s.Verifier != "" {
@@ -249,7 +276,9 @@ func exchange(p Provider, s *Session, code string) (TokenResult, error) {
 		if p.ClientSecret != "" {
 			vals.Set("client_secret", p.ClientSecret)
 		}
-		vals.Set("code_verifier", s.Verifier)
+		if s.Verifier != "" {
+			vals.Set("code_verifier", s.Verifier)
+		}
 	case "linkedin":
 		vals.Set("client_id", p.ClientID)
 		vals.Set("client_secret", p.ClientSecret)
@@ -273,9 +302,129 @@ func exchange(p Provider, s *Session, code string) (TokenResult, error) {
 		}
 	}
 	if p.Slug == "reddit" {
-		req.Header.Set("User-Agent", "BrandRelay-OAuth-Broker/1.0")
+		req.Header.Set("User-Agent", "BrandRelay-OAuth-Broker/1.2")
 	}
 	return doToken(req, p)
+}
+
+func upgradeMetaToken(p Provider, tok TokenResult) (TokenResult, error) {
+	if tok.AccessToken == "" {
+		return tok, nil
+	}
+	var endpoint string
+	var q url.Values
+	switch p.Slug {
+	case "facebook":
+		endpoint = "https://graph.facebook.com/v26.0/oauth/access_token"
+		q = url.Values{"grant_type": {"fb_exchange_token"}, "client_id": {p.ClientID}, "client_secret": {p.ClientSecret}, "fb_exchange_token": {tok.AccessToken}}
+	case "instagram":
+		endpoint = "https://graph.instagram.com/access_token"
+		q = url.Values{"grant_type": {"ig_exchange_token"}, "client_secret": {p.ClientSecret}, "access_token": {tok.AccessToken}}
+	case "threads":
+		endpoint = "https://graph.threads.net/access_token"
+		q = url.Values{"grant_type": {"th_exchange_token"}, "client_secret": {p.ClientSecret}, "access_token": {tok.AccessToken}}
+	default:
+		return tok, nil
+	}
+	req, _ := http.NewRequest("GET", endpoint+"?"+q.Encode(), nil)
+	up, err := doToken(req, p)
+	if err != nil {
+		return tok, err
+	}
+	if up.Scope == "" {
+		up.Scope = tok.Scope
+	}
+	return up, nil
+}
+
+func refreshToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		writeJSON(w, 405, map[string]any{"error": "POST required"})
+		return
+	}
+	var in struct {
+		Provider     string `json:"provider"`
+		RefreshToken string `json:"refresh_token"`
+		AccessToken  string `json:"access_token"`
+	}
+	if json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&in) != nil {
+		writeJSON(w, 400, map[string]any{"error": "invalid JSON"})
+		return
+	}
+	slug := strings.ToLower(strings.TrimSpace(in.Provider))
+	p, ok := providers[slug]
+	if !ok {
+		writeJSON(w, 404, map[string]any{"error": "unknown provider"})
+		return
+	}
+	if p.ClientID == "" {
+		writeJSON(w, 503, map[string]any{"error": p.Name + " app registration is not configured"})
+		return
+	}
+	var tr TokenResult
+	var err error
+	switch slug {
+	case "instagram":
+		if in.AccessToken == "" {
+			err = fmt.Errorf("Instagram refresh requires the current long-lived access token")
+			break
+		}
+		q := url.Values{"grant_type": {"ig_refresh_token"}, "access_token": {in.AccessToken}}
+		req, _ := http.NewRequest("GET", "https://graph.instagram.com/refresh_access_token?"+q.Encode(), nil)
+		tr, err = doToken(req, p)
+	case "threads":
+		if in.AccessToken == "" {
+			err = fmt.Errorf("Threads refresh requires the current long-lived access token")
+			break
+		}
+		q := url.Values{"grant_type": {"th_refresh_token"}, "access_token": {in.AccessToken}}
+		req, _ := http.NewRequest("GET", "https://graph.threads.net/refresh_access_token?"+q.Encode(), nil)
+		tr, err = doToken(req, p)
+	case "facebook":
+		err = fmt.Errorf("Facebook token requires reconnect when no longer valid")
+	default:
+		if in.RefreshToken == "" {
+			err = fmt.Errorf("%s did not provide a refresh token; reconnect is required", p.Name)
+			break
+		}
+		vals := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {in.RefreshToken}}
+		switch slug {
+		case "tiktok":
+			vals.Set("client_key", p.ClientID)
+			vals.Set("client_secret", p.ClientSecret)
+		case "x":
+			vals.Set("client_id", p.ClientID)
+		case "google", "linkedin":
+			vals.Set("client_id", p.ClientID)
+			if p.ClientSecret != "" {
+				vals.Set("client_secret", p.ClientSecret)
+			}
+		case "pinterest", "reddit":
+		default:
+			vals.Set("client_id", p.ClientID)
+			if p.ClientSecret != "" {
+				vals.Set("client_secret", p.ClientSecret)
+			}
+		}
+		req, _ := http.NewRequest("POST", p.TokenURL, strings.NewReader(vals.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if slug == "pinterest" || slug == "reddit" || (slug == "x" && p.ClientSecret != "") {
+			req.SetBasicAuth(p.ClientID, p.ClientSecret)
+		}
+		if slug == "reddit" {
+			req.Header.Set("User-Agent", "BrandRelay-OAuth-Broker/1.2")
+		}
+		tr, err = doToken(req, p)
+	}
+	if err != nil {
+		writeJSON(w, 400, map[string]any{"error": err.Error()})
+		return
+	}
+	rt := tr.RefreshToken
+	if rt == "" {
+		rt = in.RefreshToken
+	}
+	writeJSON(w, 200, map[string]any{"access_token": tr.AccessToken, "refresh_token": rt, "scope": tr.Scope, "expires_in": tr.ExpiresIn})
 }
 
 func doToken(req *http.Request, p Provider) (TokenResult, error) {
@@ -336,7 +485,7 @@ func discoverIdentity(p Provider, s *Session) {
 	req, _ := http.NewRequest("GET", endpoint, nil)
 	req.Header.Set("Authorization", "Bearer "+s.AccessToken)
 	if p.Slug == "reddit" {
-		req.Header.Set("User-Agent", "BrandRelay-OAuth-Broker/1.0")
+		req.Header.Set("User-Agent", "BrandRelay-OAuth-Broker/1.2")
 	}
 	resp, err := (&http.Client{Timeout: 12 * time.Second}).Do(req)
 	if err != nil {
@@ -378,7 +527,12 @@ func find(v any, keys []string) string {
 }
 
 func status(w http.ResponseWriter, r *http.Request) {
-	id, secret := r.URL.Query().Get("session_id"), r.URL.Query().Get("session_secret")
+	id := r.URL.Query().Get("session_id")
+	secret := r.Header.Get("X-BrandRelay-Session-Secret")
+	if secret == "" {
+		// Backward compatibility with older Hall Monitor clients.
+		secret = r.URL.Query().Get("session_secret")
+	}
 	sessionsMu.Lock()
 	s := sessions[id]
 	sessionsMu.Unlock()

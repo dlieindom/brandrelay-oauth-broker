@@ -9,7 +9,7 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: BRANDRELAY_PUBLIC_URL
-        sync: false
+        value: https://brandrelay-oauth-broker.onrender.com
       - key: META_APP_ID
         sync: false
       - key: META_APP_SECRET
@@ -20,31 +20,47 @@ services:
         sync: false
       - key: INSTAGRAM_CLIENT_SECRET
         sync: false
+      - key: INSTAGRAM_SCOPES
+        value: instagram_business_basic
       - key: THREADS_CLIENT_ID
         sync: false
       - key: THREADS_CLIENT_SECRET
         sync: false
+      - key: THREADS_SCOPES
+        value: threads_basic
       - key: TIKTOK_CLIENT_KEY
         sync: false
       - key: TIKTOK_CLIENT_SECRET
         sync: false
+      - key: TIKTOK_SCOPES
+        value: user.info.basic,video.list
       - key: X_CLIENT_ID
         sync: false
       - key: X_CLIENT_SECRET
         sync: false
+      - key: X_SCOPES
+        value: tweet.read users.read offline.access
       - key: LINKEDIN_CLIENT_ID
         sync: false
       - key: LINKEDIN_CLIENT_SECRET
         sync: false
+      - key: LINKEDIN_SCOPES
+        value: openid profile
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      - key: GOOGLE_SCOPES
+        value: openid profile https://www.googleapis.com/auth/youtube.readonly
       - key: PINTEREST_CLIENT_ID
         sync: false
       - key: PINTEREST_CLIENT_SECRET
         sync: false
+      - key: PINTEREST_SCOPES
+        value: user_accounts:read,boards:read,pins:read
       - key: REDDIT_CLIENT_ID
         sync: false
       - key: REDDIT_CLIENT_SECRET
         sync: false
+      - key: REDDIT_SCOPES
+        value: identity read
